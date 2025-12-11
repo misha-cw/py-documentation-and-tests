@@ -71,9 +71,25 @@ class UnauthenticatedMovieApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
     
-    def test_auth_required(self):
-        """Test that authentication is required"""
+    def test_movie_list_auth_required(self):
         res = self.client.get(MOVIE_URL)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_movie_detail_auth_required(self):
+        movie = sample_movie()
+        url = detail_url(movie.id)
+        res = self.client.get(url)
+
+        self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_movie_create_auth_required(self):
+        payload = {
+            "title": "New Movie",
+            "description": "New movie description",
+            "duration": 120,
+        }
+        res = self.client.post(MOVIE_URL, payload)
 
         self.assertEqual(res.status_code, status.HTTP_401_UNAUTHORIZED)
 
@@ -145,6 +161,21 @@ class AuthenticatedMovieApiTests(TestCase):
         self.assertIn(serializer2.data, res.data)
         self.assertNotIn(serializer3.data, res.data)
 
+    def test_filter_movies_by_title(self):
+        movie_1 = sample_movie(title="The Great Adventure")
+        movie_2 = sample_movie(title="Romantic Comedy")
+        movie_3 = sample_movie(title="Adventure in the Mountains")
+
+        res = self.client.get(MOVIE_URL, {"title": "Adventure"})
+
+        serializer1 = MovieListSerializer(movie_1)
+        serializer3 = MovieListSerializer(movie_3)
+        serializer2 = MovieListSerializer(movie_2)
+
+        self.assertIn(serializer1.data, res.data)
+        self.assertIn(serializer3.data, res.data)
+        self.assertNotIn(serializer2.data, res.data)
+
     def test_retrieve_movie_detail(self):
         movie = sample_movie()
         movie.genres.add(sample_genre())
@@ -208,6 +239,24 @@ class AdminMovieApiTests(TestCase):
 
         url = detail_url(movie.id)
         res = self.client.delete(url)
+
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_update_movie_not_allowed(self):
+        movie = sample_movie()
+
+        url = detail_url(movie.id)
+        payload = {"title": "Updated Title"}
+        res = self.client.put(url, payload)
+
+        self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    def test_partial_update_movie_not_allowed(self):
+        movie = sample_movie()
+
+        url = detail_url(movie.id)
+        payload = {"title": "Partially Updated Title"}
+        res = self.client.patch(url, payload)
 
         self.assertEqual(res.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
         
